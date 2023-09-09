@@ -8,11 +8,12 @@ void read_var(unordered_map<string, string> map, int currlineNum);
 void read_condition(unordered_map<string, string> condition, int lineNum);
 void read_if_else_block(unordered_multimap<string, string> statements, int lineNum);
 void read_printf(unordered_multimap<string, string> print, int lineNum);
+void read_scanf(unordered_multimap<string, string> input, int lineNum);
 void read_for(unordered_map<string, string> statements, int lineNum);
 void read_while(unordered_map<string, string> statements, int lineNum);
 void read_for_block(unordered_multimap<string, string> statements,unordered_map<string,string>condition,unordered_map<string,string>modification, int lineNum);
 void read_while_block(unordered_multimap<string, string> statements,unordered_map<string,string>condition,int lineNum);
-void read_expression(unordered_multimap<string,string>expression,int lineNum);
+
 
 vector<string> header = {"stdio.h", "conio.h", "stdlib.h", "math.h", "string.h"};
 vector<string>operatorSign={"++","--","+=","-="};
@@ -25,7 +26,8 @@ map<string, string> operators = {{"!=", "not equal "},
 map<string, string> fm_spec = {{"%d", "integer "},
                                 {"%dn", "integer in every new line "},
                                {"%f", "float "},
-                               {"%fn", "float in every new line "}};
+                               {"%fn", "float in every new line "},
+                                {"%c", "character "}};
 unordered_map<string, float> traceVar;
 
 bool open, isMain = false;
@@ -83,9 +85,31 @@ int main()
         {
             check_open_bracket(lineNum, tokenValue,"main");
         }
+        else if(tokenType=="identifier" && (tokenValue=="printf" || tokenValue=="scanf") && isMain==true)
+        {   
+            string line_tokenValue=tokenValue;
+            unordered_multimap<string, string> input;
+            while (currlineNum == lineNum)
+            {   
+                
+                if (tokenValue != "(" && tokenValue != ")" && tokenValue != ";")
+                {
+                    input.insert(make_pair(tokenType, tokenValue));
+                }
+                line.clear();
+                getline(file, line);
+                istringstream iss(line);
+                iss >> tokenType >> tokenValue >> currlineNum;
+            }
+            if(line_tokenValue=="printf"){
+                read_printf(input,lineNum);
+            }else{
+                read_scanf(input,lineNum);
+            }
+
+        }
         else if (tokenType == "keyword" && tokenValue != "if" && tokenValue != "else" && tokenValue != "return" && tokenValue != "for" && tokenValue != "while" && isMain == true)
         {
-            // vector<pair<string,string>>v;
             unordered_map<string, string> mp;
             while (currlineNum == lineNum)
             {
@@ -99,7 +123,7 @@ int main()
             mp.clear();
         }
         else if (tokenType == "keyword" && tokenValue == "if" && isMain == true)
-        {
+        {   
             unordered_map<string, string> condition;
             unordered_multimap<string, string> statements;
             bool checkOpenCurlyBrace=false;
@@ -109,7 +133,6 @@ int main()
                 
                 if (tokenValue != "(" && tokenValue != ")" && tokenValue != "{")
                 {
-                    // cout<<"in"<<endl;
                     condition.insert(make_pair(tokenType, tokenValue));
                 }
                 line.clear();
@@ -522,18 +545,20 @@ void read_printf(unordered_multimap<string, string> print, int lineNum)
         if (it->first == "string")
         {
             string temp=it->second;
+            cout<<temp<<endl;
             if (it->second == "%d" || it->second == "%f")
             {
                 format_specifier = it->second;
                 check_format_spec = 1;
                 break;
             }
-            else if(temp.find("%d\n")){
+            else if(it->second.find("%d\n") != string::npos){
+                //cout<<temp<<endl;
                 format_specifier ="%dn";
                 check_format_spec = 1;
                 break;
             }
-            else if(temp.find("%f\n")){
+            else if(temp.find("%f\n")!=string::npos){
                 format_specifier ="%fn";
                 check_format_spec = 1;
                 break;
@@ -564,6 +589,48 @@ void read_printf(unordered_multimap<string, string> print, int lineNum)
         cout << "In line " << lineNum << " >> "
              << "This a print statement and which prints " << output << endl;
     }
+}
+
+void read_scanf(unordered_multimap<string, string> input, int lineNum)
+{
+    auto range = input.equal_range("string");
+    string format_specifier;
+    string var;
+    string output;
+    int check_format_spec = 0;
+    for (auto it = range.first; it != range.second; ++it)
+    {   
+        if (it->first == "string")
+        {
+            string temp=it->second;
+            if (it->second == "%d" || it->second == "%f" || it->second == "%c")
+            {
+                format_specifier = it->second;
+                check_format_spec = 1; 
+                break;
+            }
+            else
+            {
+                output = it->second;
+                break;
+            }
+        }
+    }
+    range = input.equal_range("identifier");
+    for (auto it = range.first; it != range.second; ++it)
+    {
+        if (it->first == "identifier")
+        {
+            var = it->second;
+            break;
+        }
+    }
+    if (check_format_spec)
+    {
+        cout << "In line " << lineNum + 1 << " >> "
+             << "This a scanf statement and takes input a " << fm_spec[format_specifier] << "and assigned to variable "<< var <<  endl;
+    }
+    
 }
 void read_for(unordered_map<string, string> statements, int lineNum)
 {
@@ -604,12 +671,23 @@ void read_for_block(unordered_multimap<string, string> statements,unordered_map<
     // }
     if (check_print){
         int limit=stoi(condition["integer"]);
-        for(int i=1;i<=limit;i++)
-        {
-            read_printf(statements, lineNum);
-            traceVar[modification["identifier"]]++;
+        int i=(int) traceVar[modification["identifier"]];
+        string controlOperator=condition["operator"];
+        if(controlOperator=="<="){
+            for(;i<=limit;i++)
+            {   
+                read_printf(statements, lineNum);
+                traceVar[modification["identifier"]]++;
+            }
         }
-        //read_printf(statements, lineNum);
+        else if(controlOperator=="<"){
+            for(;i<limit;i++)
+            {   
+                read_printf(statements, lineNum);
+                traceVar[modification["identifier"]]++;
+            }
+        }
+        
     }
 }
 
@@ -689,8 +767,4 @@ void read_while_block(unordered_multimap<string, string> statements,unordered_ma
             }
         }
     }
-}
-void read_expression(unordered_multimap<string,string>expression,int lineNum)
-{
-    
 }
